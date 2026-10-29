@@ -22,7 +22,7 @@
   "permissions": ["activeTab", "scripting", "contextMenus"],
   "commands": {
     "_execute_action": {
-      "suggested_key": { "default": "Alt+Shift+P" },
+      "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" },
       "description": "ChaekOn 패널 열기"
     }
   },

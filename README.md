@@ -26,7 +26,7 @@
 3. **압축해제된 확장 프로그램을 로드합니다**를 눌러 이 저장소 폴더를 고릅니다.
 4. 전자책 뷰어를 연 탭에서 아래 세 가지 중 하나로 열면 오른쪽 위에 진행률 패널이 뜹니다.
    - 툴바의 ChaekOn 아이콘 클릭
-   - 단축키 `Alt+Shift+P` (`chrome://extensions/shortcuts`에서 바꿀 수 있습니다)
+   - 단축키 `Ctrl+Shift+Y`(Mac은 `Command+Shift+Y`). 다른 프로그램과 겹치면 `chrome://extensions/shortcuts`에서 바꿀 수 있습니다
    - 페이지에서 우클릭한 뒤 **ChaekOn: 이 책을 PDF로 저장** 선택
 5. **PDF 만들기**를 누르고, 끝나면 **PDF 저장**을 누릅니다.
 
