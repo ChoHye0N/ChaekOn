@@ -1,10 +1,10 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 // chrome API 대역: 등록된 리스너를 붙잡아 두고, 호출을 기록한다.
-const calls = { inject: [], badge: [], title: [], menus: [] };
-let injectError = null;
+const calls = { inject: [], badge: [], title: [], menus: [], popup: [], opened: [] };
+let injectError = null, openPopupError = null;
 const listeners = {};
 const on = name => ({ addListener: fn => { listeners[name] = fn; } });
 globalThis.chrome = {
@@ -13,6 +13,8 @@ globalThis.chrome = {
     setBadgeText: o => calls.badge.push(o),
     setBadgeBackgroundColor: () => {},
     setTitle: o => calls.title.push(o),
+    setPopup: async o => { calls.popup.push(o); },
+    openPopup: async () => { calls.opened.push(true); if (openPopupError) throw openPopupError; },
   },
   runtime: { onInstalled: on('installed') },
   contextMenus: { create: o => calls.menus.push(o), onClicked: on('menu') },
@@ -23,26 +25,54 @@ await import('../src/background.js');
 beforeEach(() => {
   for (const k of Object.keys(calls)) calls[k].length = 0;
   injectError = null;
+  openPopupError = null;
 });
 
 test('아이콘 클릭: http(s) 탭이면 loader.js를 최상위 프레임에 주입한다', async () => {
   await listeners.action({ id: 7, url: 'https://viewer.test/book/index.html' });
   assert.deepEqual(calls.inject, [{ target: { tabId: 7, frameIds: [0] }, files: ['src/content/loader.js'] }]);
   assert.deepEqual(calls.badge.at(-1), { tabId: 7, text: '' });
+  assert.deepEqual(calls.popup, [{ tabId: 7, popup: '' }], '성공하면 이전에 지정한 안내 팝업을 해제한다');
+  assert.equal(calls.opened.length, 0);
 });
 
-test('chrome:// 페이지에서는 주입하지 않고 오류 없이 배지로 알린다', async () => {
+test('chrome:// 페이지에서는 주입하지 않고 안내 팝업을 연다', async () => {
   await listeners.action({ id: 3, url: 'chrome://extensions/' });
   assert.equal(calls.inject.length, 0);
   assert.deepEqual(calls.badge.at(-1), { tabId: 3, text: '!' });
   assert.match(calls.title.at(-1).title, /사용할 수 없습니다/);
+  assert.deepEqual(calls.popup, [{ tabId: 3, popup: 'src/ui/unavailable.html?reason=restricted' }]);
+  assert.equal(calls.opened.length, 1);
 });
 
-test('url을 알 수 없어도 주입이 거부되면 오류를 던지지 않고 배지로 알린다', async () => {
+test('url을 몰라도 주입이 접근 불가로 거부되면 같은 안내를 연다', async () => {
   injectError = new Error('Cannot access a chrome:// URL');
   await listeners.action({ id: 4 });
   assert.equal(calls.inject.length, 1);
   assert.deepEqual(calls.badge.at(-1), { tabId: 4, text: '!' });
+  assert.deepEqual(calls.popup, [{ tabId: 4, popup: 'src/ui/unavailable.html?reason=restricted' }]);
+});
+
+test('그 밖의 주입 실패는 다른 문구(reason=failed)로 안내한다', async () => {
+  injectError = new Error('Frame with ID 0 was removed.');
+  await listeners.action({ id: 5, url: 'https://viewer.test/' });
+  assert.deepEqual(calls.popup, [{ tabId: 5, popup: 'src/ui/unavailable.html?reason=failed' }]);
+  assert.equal(calls.opened.length, 1);
+});
+
+test('팝업을 열 수 없어도 오류를 던지지 않고 배지와 툴팁은 남는다', async () => {
+  openPopupError = new Error('Could not find an active browser window.');
+  await listeners.action({ id: 6, url: 'chrome://version/' });
+  assert.deepEqual(calls.badge.at(-1), { tabId: 6, text: '!' });
+  assert.match(calls.title.at(-1).title, /사용할 수 없습니다/);
+});
+
+test('안내 팝업 파일과 문구가 있다', () => {
+  assert.ok(existsSync('src/ui/unavailable.html'));
+  const html = readFileSync('src/ui/unavailable.html', 'utf8');
+  assert.match(html, /이 페이지에서는 사용할 수 없습니다/);
+  assert.match(html, /<script src="unavailable\.js">/, '인라인 스크립트는 확장 CSP에서 막힌다');
+  assert.ok(existsSync('src/ui/unavailable.js'));
 });
 
 test('설치하면 우클릭 메뉴를 한 번 만든다', () => {

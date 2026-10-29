@@ -5,21 +5,38 @@
 // 그 밖의 자동 동작은 없다.
 const MENU_ID = 'chaekon-open';
 const DEFAULT_TITLE = 'ChaekOn: 이 책을 PDF로 저장';
-const UNAVAILABLE_TITLE = 'ChaekOn: 이 페이지에서는 사용할 수 없습니다 (크롬 내부 페이지, 웹 스토어 등)';
+const UNAVAILABLE_TITLE = 'ChaekOn: 이 페이지에서는 사용할 수 없습니다';
+const UNAVAILABLE_POPUP = 'src/ui/unavailable.html';
+
+// 패널을 주입할 수 없는 탭에서는 확장 팝업으로 이유를 안내한다. 팝업 지정은 그 탭에만 적용된다.
+async function showUnavailable(tabId, reason) {
+  chrome.action.setBadgeBackgroundColor({ tabId, color: '#dc2626' });
+  chrome.action.setBadgeText({ tabId, text: '!' });
+  chrome.action.setTitle({ tabId, title: UNAVAILABLE_TITLE });
+  try {
+    await chrome.action.setPopup({ tabId, popup: `${UNAVAILABLE_POPUP}?reason=${reason}` });
+    await chrome.action.openPopup();
+  } catch {
+    // 팝업을 열 수 없는 환경이면 배지와 툴팁만 남는다.
+  }
+}
 
 async function openPanel(tabId, frameId = 0, url) {
   if (tabId === undefined || tabId < 0) return;
-  try {
-    // chrome://, 웹 스토어 같은 페이지에는 주입할 수 없다. 오류를 던지지 않고 알린다.
-    if (url && !/^https?:/i.test(url)) throw new Error('unsupported url');
-    await chrome.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, files: ['src/content/loader.js'] });
-    chrome.action.setBadgeText({ tabId, text: '' });
-    chrome.action.setTitle({ tabId, title: DEFAULT_TITLE });
-  } catch {
-    chrome.action.setBadgeBackgroundColor({ tabId, color: '#dc2626' });
-    chrome.action.setBadgeText({ tabId, text: '!' });
-    chrome.action.setTitle({ tabId, title: UNAVAILABLE_TITLE });
+  // chrome://, 웹 스토어 같은 페이지에는 주입할 수 없다.
+  let restricted = !!url && !/^https?:/i.test(url);
+  if (!restricted) {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, files: ['src/content/loader.js'] });
+      chrome.action.setBadgeText({ tabId, text: '' });
+      chrome.action.setTitle({ tabId, title: DEFAULT_TITLE });
+      await chrome.action.setPopup({ tabId, popup: '' });
+      return;
+    } catch (e) {
+      restricted = /cannot access|cannot be scripted|extensions gallery/i.test(e?.message ?? '');
+    }
   }
+  await showUnavailable(tabId, restricted ? 'restricted' : 'failed');
 }
 
 chrome.action.onClicked.addListener(tab => openPanel(tab.id, 0, tab.url));
