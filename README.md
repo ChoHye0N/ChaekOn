@@ -48,7 +48,7 @@
 
 ## 빠른 시작
 
-Node.js 18 이상 또는 최신 브라우저에서 동작합니다.
+Node.js 20 이상 또는 최신 브라우저에서 동작합니다.
 
 ```js
 import { fetchPages } from './src/core/fetcher.js';
