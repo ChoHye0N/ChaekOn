@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { showLauncher } from '../src/content/launcher-ui.js';
+import { launchFromSettings, showLauncher } from '../src/content/launcher-ui.js';
 
 // launcher.js는 모듈이 아닌 classic script라서 vm에서 가짜 window로 실행한다.
 function runLauncher(win) {
@@ -67,4 +67,31 @@ test('showLauncher: 버튼을 한 번만 만들고, 누르면 onClick을 호출�
   assert.equal(clicks, 1);
   assert.equal(showLauncher(doc, { onClick: () => {} }), null, '이미 있으면 다시 만들지 않는다');
   assert.equal(appended.length, 1);
+});
+
+test('showLauncher: 위치를 오른쪽(기본)·왼쪽으로 고른다', () => {
+  assert.match(showLauncher(fakeDoc().doc).style.cssText, /right:16px/);
+  assert.match(showLauncher(fakeDoc().doc, { position: 'left' }).style.cssText, /left:16px/);
+  assert.doesNotMatch(showLauncher(fakeDoc().doc, { position: 'left' }).style.cssText, /right:/);
+});
+
+const storageWith = settings => ({ get: async () => ({ settings }) });
+
+test('launchFromSettings: 저장된 설정이 없으면 기본값(켜짐, 오른쪽)으로 띄운다', async () => {
+  const { doc, appended } = fakeDoc();
+  const host = await launchFromSettings(doc, { storage: storageWith(undefined) });
+  assert.equal(appended.length, 1);
+  assert.match(host.style.cssText, /right:16px/);
+});
+
+test('launchFromSettings: 설정에서 끄면 띄우지 않는다', async () => {
+  const { doc, appended } = fakeDoc();
+  assert.equal(await launchFromSettings(doc, { storage: storageWith({ launcher: { enabled: false } }) }), null);
+  assert.equal(appended.length, 0);
+});
+
+test('launchFromSettings: 설정한 위치(왼쪽)를 따른다', async () => {
+  const { doc } = fakeDoc();
+  const host = await launchFromSettings(doc, { storage: storageWith({ launcher: { enabled: true, position: 'left' } }) });
+  assert.match(host.style.cssText, /left:16px/);
 });

@@ -6,6 +6,6 @@
   const noToolbar = window.toolbar?.visible === false || window.locationbar?.visible === false;
   if (!noToolbar) return;
   import(chrome.runtime.getURL('src/content/launcher-ui.js'))
-    .then(m => m.showLauncher())
+    .then(m => m.launchFromSettings())
     .catch(() => {});   // 확장이 갱신돼 컨텍스트가 끊긴 경우: 페이지를 새로고침하면 된다
 })();

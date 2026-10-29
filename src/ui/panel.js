@@ -8,7 +8,10 @@ const HTML = `
             box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 14px 16px; font-size: 13px; }
     .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
     .head b { font-size: 14px; }
-    .x { border: 0; background: none; font-size: 18px; line-height: 1; cursor: pointer; color: #6b7280; }
+    .tools { display: flex; align-items: center; gap: 6px; }
+    .x { border: 0; background: none; font-size: 18px; line-height: 1; cursor: pointer; color: #6b7280; padding: 2px; display: flex; }
+    .x:hover { color: #1f2937; }
+    .x svg { width: 16px; height: 16px; display: block; }
     .title { color: #4b5563; margin-bottom: 10px; word-break: break-all; }
     .bar { height: 10px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
     .fill { height: 100%; width: 0; background: #2563eb; transition: width .15s; }
@@ -25,7 +28,17 @@ const HTML = `
     .hide { display: none !important; }
   </style>
   <div class="card">
-    <div class="head"><b>ChaekOn</b><button class="x" id="close" title="닫기">×</button></div>
+    <div class="head"><b>ChaekOn</b>
+      <span class="tools">
+        <button class="x" id="settings" title="설정" aria-label="설정">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="7.5"/>
+            <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>
+          </svg>
+        </button>
+        <button class="x" id="close" title="닫기" aria-label="닫기">×</button>
+      </span>
+    </div>
     <div class="title" id="title"></div>
     <div class="bar"><div class="fill" id="fill"></div></div>
     <div class="stat"><span id="count">0 / 0</span><span id="pct">0%</span></div>
@@ -51,7 +64,7 @@ export function createPanel(doc) {
   const show = (id, on) => $(id).classList.toggle('hide', !on);
 
   const panel = {
-    onStart: null, onCancel: null, onSave: null, onClose: null,
+    onStart: null, onCancel: null, onSave: null, onClose: null, onSettings: null,
     setTitle: t => { $('title').textContent = t; },
     setMessage: (t, isError = false) => { $('msg').textContent = t; $('msg').classList.toggle('err', isError); },
     setProgress(done, total, kind = '') {
@@ -72,6 +85,7 @@ export function createPanel(doc) {
   $('start').onclick = () => panel.onStart?.();
   $('cancel').onclick = () => panel.onCancel?.();
   $('save').onclick = () => panel.onSave?.();
+  $('settings').onclick = () => panel.onSettings?.();
   $('close').onclick = () => { panel.destroy(); panel.onClose?.(); };
   return panel;
 }

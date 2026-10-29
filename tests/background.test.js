@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 
 // chrome API 대역: 등록된 리스너를 붙잡아 두고, 호출을 기록한다.
-const calls = { inject: [], badge: [], title: [], menus: [], popup: [], opened: [] };
+const calls = { inject: [], badge: [], title: [], menus: [], popup: [], opened: [], options: [] };
 let injectError = null, openPopupError = null;
 const listeners = {};
 const on = name => ({ addListener: fn => { listeners[name] = fn; } });
@@ -16,7 +16,7 @@ globalThis.chrome = {
     setPopup: async o => { calls.popup.push(o); },
     openPopup: async () => { calls.opened.push(true); if (openPopupError) throw openPopupError; },
   },
-  runtime: { onInstalled: on('installed') },
+  runtime: { id: 'ext-id', onInstalled: on('installed'), onMessage: on('message'), openOptionsPage: () => calls.options.push(true) },
   contextMenus: { create: o => calls.menus.push(o), onClicked: on('menu') },
   scripting: { executeScript: async o => { calls.inject.push(o); if (injectError) throw injectError; } },
 };
@@ -90,6 +90,19 @@ test('다른 메뉴 항목이나 탭 없는 호출은 무시한다', async () =>
   await listeners.menu({ menuItemId: 'other', frameId: 0 }, { id: 9, url: 'https://viewer.test/' });
   await listeners.menu({ menuItemId: 'chaekon-open', frameId: 0 }, undefined);
   assert.equal(calls.inject.length, 0);
+});
+
+test('톱니 버튼 메시지를 받으면 설정 페이지를 연다', () => {
+  listeners.message({ type: 'open-options' }, { id: 'ext-id' });
+  assert.equal(calls.options.length, 1);
+});
+
+test('다른 확장이나 웹 페이지가 보낸 메시지, 다른 종류의 메시지는 무시한다', () => {
+  listeners.message({ type: 'open-options' }, { id: 'other-ext' });
+  listeners.message({ type: 'open-options' }, {});
+  listeners.message({ type: 'something-else' }, { id: 'ext-id' });
+  listeners.message(undefined, { id: 'ext-id' });
+  assert.equal(calls.options.length, 0);
 });
 
 test('단축키는 아이콘 클릭과 같은 경로(_execute_action)로 들어온다', () => {

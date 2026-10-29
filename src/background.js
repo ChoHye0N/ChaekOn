@@ -45,6 +45,11 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: MENU_ID, title: DEFAULT_TITLE, contexts: ['all'] });
 });
 
+// 패널의 톱니 버튼: 콘텐츠 스크립트는 설정 페이지를 직접 열 수 없어 background가 대신 연다.
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (sender.id === chrome.runtime.id && message?.type === 'open-options') chrome.runtime.openOptionsPage();
+});
+
 // 프레임 안에서 눌렀으면 그 프레임에 연다. 뷰어가 같은 출처 iframe 안에 있어도 동작한다.
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === MENU_ID && tab) openPanel(tab.id, info.frameId ?? 0, tab.url);

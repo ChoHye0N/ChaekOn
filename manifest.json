@@ -21,15 +21,28 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["src/content/launcher.js"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "src/content/launcher.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["activeTab", "scripting", "contextMenus"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "storage"
+  ],
   "commands": {
     "_execute_action": {
-      "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" },
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
       "description": "ChaekOn 패널 열기"
     }
   },
@@ -41,7 +54,14 @@
         "src/adapters/*.js",
         "src/ui/*.js"
       ],
-      "matches": ["http://*/*", "https://*/*"]
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
     }
-  ]
+  ],
+  "options_ui": {
+    "page": "src/ui/options.html",
+    "open_in_tab": true
+  }
 }

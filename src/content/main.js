@@ -1,6 +1,7 @@
 // 확장 아이콘을 눌렀을 때 loader.js가 불러와 toggle()을 호출한다. 패널이 이미 떠 있으면 닫는다.
 import { pickAdapter } from '../adapters/index.js';
 import { convertPages } from '../core/convert.js';
+import { loadSettings, toFetchOptions } from '../core/settings.js';
 import { createPanel } from '../ui/panel.js';
 import { pdfFilename } from './filename.js';
 
@@ -39,6 +40,15 @@ export async function toggle(doc = document) {
 
   mine.onCancel = () => ctrl?.abort();
 
+  // 콘텐츠 스크립트는 설정 페이지를 직접 열 수 없어 background에 부탁한다.
+  mine.onSettings = async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: 'open-options' });
+    } catch {
+      mine.setMessage('설정을 열지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.', true);
+    }
+  };
+
   mine.onStart = async () => {
     blob = null;
     ctrl = new AbortController();
@@ -46,7 +56,9 @@ export async function toggle(doc = document) {
     mine.setMessage('이미지 받는 중…');
     const t0 = performance.now(), startDone = cache.size;
     try {
+      const speed = toFetchOptions(await loadSettings());   // 시작할 때마다 읽어, 설정을 바꾸면 바로 반영된다
       blob = await convertPages(urls, {
+        ...speed,
         cache,
         signal: ctrl.signal,
         onProgress: ({ done, bytes }) => {

@@ -7,7 +7,7 @@ const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
 
 test('Manifest V3이고 필요한 최소 권한만 요청한다', () => {
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual([...manifest.permissions].sort(), ['activeTab', 'contextMenus', 'scripting']);
+  assert.deepEqual([...manifest.permissions].sort(), ['activeTab', 'contextMenus', 'scripting', 'storage']);
   assert.equal(manifest.host_permissions, undefined, '넓은 호스트 권한을 요청하지 않는다');
 });
 
@@ -29,8 +29,17 @@ test('manifest가 가리키는 파일이 모두 있다', () => {
     manifest.background.service_worker,
     ...Object.values(manifest.icons),
     ...Object.values(manifest.action.default_icon),
+    manifest.options_ui.page,
   ];
   for (const f of files) assert.ok(existsSync(f), `${f} 없음`);
+});
+
+test('설정 페이지는 탭으로 열리고, 스크립트는 인라인이 아니라 외부 파일이다', () => {
+  assert.equal(manifest.options_ui.open_in_tab, true);
+  const html = readFileSync(manifest.options_ui.page, 'utf8');
+  assert.match(html, /<script type="module" src="options\.js"><\/script>/);
+  assert.doesNotMatch(html, /<script(?![^>]*\ssrc=)[^>]*>/, '인라인 스크립트는 확장 CSP에서 막힌다');
+  assert.ok(existsSync('src/ui/options.js'));
 });
 
 test('web_accessible_resources 패턴이 실제 모듈 파일과 맞고, loader.js가 불러오는 main.js를 포함한다', () => {
