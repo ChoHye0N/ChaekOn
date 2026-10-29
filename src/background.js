@@ -59,9 +59,32 @@ async function openSettings() {
   }
 }
 
-// 패널의 설정(슬라이더) 버튼
+// 변환 진행률을 툴바 아이콘의 배지로 보여 주고, 끝났을 때 그 창이 뒤에 있으면 작업 표시줄에서 깜박여 알린다.
+// 배지는 그 탭에만 적용되고, 탭이 다른 페이지로 이동하면 사라진다.
+const PROGRESS_STATES = ['running', 'done', 'error', 'cancelled', 'clear'];
+const BADGE_COLORS = { running: '#2563eb', done: '#16a34a', error: '#dc2626' };
+
+async function showProgress(tab, { state, percent }) {
+  const tabId = tab?.id;
+  if (tabId === undefined || tabId < 0 || !PROGRESS_STATES.includes(state)) return;
+  const text = state === 'running' ? `${Math.min(100, Math.max(0, Math.round(Number(percent) || 0)))}%`
+    : state === 'done' ? '완료'
+      : state === 'error' ? '!' : '';
+  if (BADGE_COLORS[state]) chrome.action.setBadgeBackgroundColor({ tabId, color: BADGE_COLORS[state] });
+  chrome.action.setBadgeText({ tabId, text });
+  if (state !== 'done' || tab.windowId === undefined) return;
+  try {
+    const win = await chrome.windows.get(tab.windowId);
+    if (!win.focused) await chrome.windows.update(tab.windowId, { drawAttention: true });
+  } catch {
+    // 창이 이미 닫혔다면 알릴 곳이 없다.
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender) => {
-  if (sender.id === chrome.runtime.id && message?.type === 'open-options') openSettings();
+  if (sender.id !== chrome.runtime.id) return;
+  if (message?.type === 'open-options') openSettings();   // 패널의 설정(슬라이더) 버튼
+  else if (message?.type === 'progress') showProgress(sender.tab, message);
 });
 
 // 프레임 안에서 눌렀으면 그 프레임에 연다. 뷰어가 같은 출처 iframe 안에 있어도 동작한다.

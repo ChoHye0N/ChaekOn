@@ -54,3 +54,18 @@ test('실패 뒤 같은 cache로 다시 호출하면 받은 페이지는 다시 
   assert.deepEqual(seen, [3]);
   assert.match(Buffer.from(await blob.arrayBuffer()).toString('latin1'), /\/Count 4\//);
 });
+
+test('firstPage: 책의 일부만 받을 때 오류의 페이지 번호는 책의 쪽 번호다', async () => {
+  // urls[0]이 책의 10쪽이면, 두 번째 URL(11쪽)이 실패하면 11로 보고한다
+  const f = async url => (pageOf(url) === 2 ? new Response(null, { status: 500 }) : new Response(fakeJpeg()));
+  await assert.rejects(convertPages(urlsOf(3), { ...fast, fetch: f, maxRetries: 0, firstPage: 10 }), e => {
+    assert.deepEqual(e.failed, [11]);
+    assert.match(e.message, /받지 못한 페이지: 11/);
+    return true;
+  });
+});
+
+test('firstPage: JPEG를 읽지 못한 쪽 번호도 책의 쪽 번호', async () => {
+  const f = async url => new Response(pageOf(url) === 3 ? new Uint8Array([1, 2, 3, 4]) : fakeJpeg());
+  await assert.rejects(convertPages(urlsOf(3), { ...fast, fetch: f, firstPage: 40 }), /42페이지/);
+});

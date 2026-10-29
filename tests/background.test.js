@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 
 // chrome API 대역: 등록된 리스너를 붙잡아 두고, 호출을 기록한다.
-const calls = { inject: [], badge: [], title: [], menus: [], popup: [], opened: [], options: [], tabUpdate: [], winUpdate: [] };
-let injectError = null, openPopupError = null, optionsTabs = [];
+const calls = { inject: [], badge: [], title: [], menus: [], popup: [], opened: [], options: [], tabUpdate: [], winUpdate: [], color: [] };
+let injectError = null, openPopupError = null, optionsTabs = [], windowFocused = true;
 const listeners = {};
 const on = name => ({ addListener: fn => { listeners[name] = fn; } });
 globalThis.chrome = {
   action: {
     onClicked: on('action'),
     setBadgeText: o => calls.badge.push(o),
-    setBadgeBackgroundColor: () => {},
+    setBadgeBackgroundColor: o => calls.color.push(o),
     setTitle: o => calls.title.push(o),
     setPopup: async o => { calls.popup.push(o); },
     openPopup: async () => { calls.opened.push(true); if (openPopupError) throw openPopupError; },
@@ -27,7 +27,10 @@ globalThis.chrome = {
     query: async q => { calls.options.queries = [...(calls.options.queries ?? []), q]; return optionsTabs; },
     update: async (id, props) => { calls.tabUpdate.push({ id, props }); },
   },
-  windows: { update: async (id, props) => { calls.winUpdate.push({ id, props }); } },
+  windows: {
+    get: async id => ({ id, focused: windowFocused }),
+    update: async (id, props) => { calls.winUpdate.push({ id, props }); },
+  },
   contextMenus: { create: o => calls.menus.push(o), onClicked: on('menu') },
   scripting: { executeScript: async o => { calls.inject.push(o); if (injectError) throw injectError; } },
 };
@@ -38,6 +41,7 @@ beforeEach(() => {
   injectError = null;
   openPopupError = null;
   optionsTabs = [];
+  windowFocused = true;
   delete calls.options.queries;
 });
 
@@ -124,9 +128,14 @@ test('설정 탭을 찾지 못하거나 창 전환이 실패해도 오류를 던
   assert.equal(calls.winUpdate.length, 0);
 
   optionsTabs = [{ id: 1, windowId: 2 }];
+  const original = chrome.windows.update;
   chrome.windows.update = async () => { throw new Error('No window with id'); };
-  listeners.message({ type: 'open-options' }, { id: 'ext-id' });
-  await flush();
+  try {
+    listeners.message({ type: 'open-options' }, { id: 'ext-id' });
+    await flush();
+  } finally {
+    chrome.windows.update = original;   // 다른 테스트로 새어 나가지 않게 복원한다
+  }
 });
 
 test('다른 확장이나 웹 페이지가 보낸 메시지, 다른 종류의 메시지는 무시한다', async () => {
@@ -142,4 +151,60 @@ test('단축키는 아이콘 클릭과 같은 경로(_execute_action)로 들어�
   const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
   assert.ok(manifest.commands._execute_action.suggested_key.default);
   assert.equal(manifest.action.default_popup, undefined, '팝업이 있으면 onClicked가 호출되지 않는다');
+});
+
+const progressFrom = (message, tab = { id: 7, windowId: 3 }, senderId = 'ext-id') => listeners.message(message, { id: senderId, tab });
+
+test('진행률: 탭의 툴바 배지에 퍼센트를 표시한다', async () => {
+  progressFrom({ type: 'progress', state: 'running', percent: 42.4 });
+  await flush();
+  assert.deepEqual(calls.badge.at(-1), { tabId: 7, text: '42%' });
+  assert.deepEqual(calls.color.at(-1), { tabId: 7, color: '#2563eb' });
+  assert.equal(calls.winUpdate.length, 0, '진행 중에는 창을 깜박이지 않는다');
+});
+
+test('진행률: 퍼센트는 0~100으로 보정하고, 숫자가 아니면 0%', async () => {
+  progressFrom({ type: 'progress', state: 'running', percent: 250 });
+  await flush();
+  assert.equal(calls.badge.at(-1).text, '100%');
+  progressFrom({ type: 'progress', state: 'running', percent: 'abc' });
+  await flush();
+  assert.equal(calls.badge.at(-1).text, '0%');
+});
+
+test('완료: 배지를 완료로 바꾸고, 그 창이 뒤에 있으면 작업 표시줄에서 깜박인다', async () => {
+  windowFocused = false;
+  progressFrom({ type: 'progress', state: 'done' });
+  await flush();
+  assert.deepEqual(calls.badge.at(-1), { tabId: 7, text: '완료' });
+  assert.deepEqual(calls.color.at(-1), { tabId: 7, color: '#16a34a' });
+  assert.deepEqual(calls.winUpdate, [{ id: 3, props: { drawAttention: true } }]);
+});
+
+test('완료: 이미 앞에 있는 창은 깜박이지 않는다', async () => {
+  windowFocused = true;
+  progressFrom({ type: 'progress', state: 'done' });
+  await flush();
+  assert.equal(calls.badge.at(-1).text, '완료');
+  assert.equal(calls.winUpdate.length, 0);
+});
+
+test('오류는 빨간 !, 취소와 닫기는 배지를 지운다', async () => {
+  progressFrom({ type: 'progress', state: 'error' });
+  await flush();
+  assert.deepEqual(calls.badge.at(-1), { tabId: 7, text: '!' });
+  assert.deepEqual(calls.color.at(-1), { tabId: 7, color: '#dc2626' });
+  for (const state of ['cancelled', 'clear']) {
+    progressFrom({ type: 'progress', state });
+    await flush();
+    assert.deepEqual(calls.badge.at(-1), { tabId: 7, text: '' }, state);
+  }
+});
+
+test('진행률 메시지: 다른 보낸이, 탭 없음, 알 수 없는 상태는 무시한다', async () => {
+  progressFrom({ type: 'progress', state: 'running', percent: 10 }, { id: 7, windowId: 3 }, 'other-ext');
+  progressFrom({ type: 'progress', state: 'running', percent: 10 }, null);
+  progressFrom({ type: 'progress', state: 'explode', percent: 10 });
+  await flush();
+  assert.equal(calls.badge.length, 0);
 });

@@ -1,6 +1,7 @@
 // 확장 아이콘을 눌렀을 때 loader.js가 불러와 toggle()을 호출한다. 패널이 이미 떠 있으면 닫는다.
 import { pickAdapter } from '../adapters/index.js';
 import { convertPages } from '../core/convert.js';
+import { parseRange } from '../core/range.js';
 import { loadSettings, toFetchOptions } from '../core/settings.js';
 import { createPanel } from '../ui/panel.js';
 import { pdfFilename } from './filename.js';
@@ -14,9 +15,22 @@ export async function toggle(doc = document) {
   if (panel) { panel.destroy(); panel.onClose?.(); return; }
 
   const mine = panel = createPanel(doc);
-  let ctrl = null, blob = null, closed = false;
+  let ctrl = null, blob = null, closed = false, savedName = 'ebook.pdf', lastRange = '', lastReport = '';
   const cache = new Map();   // 취소하거나 실패해도 받은 페이지는 남겨 이어받는다
-  mine.onClose = () => { closed = true; ctrl?.abort(); if (panel === mine) panel = null; };
+
+  // 툴바 배지 진행률과 완료 알림은 background가 맡는다(콘텐츠 스크립트는 배지를 바꿀 수 없다). 실패해도 변환에는 영향이 없다.
+  const report = (state, percent = 0) => {
+    const key = state + ':' + percent;
+    if (key === lastReport) return;
+    lastReport = key;
+    try {
+      chrome.runtime.sendMessage({ type: 'progress', state, percent })?.catch?.(() => {});
+    } catch {
+      // 확장이 갱신돼 컨텍스트가 끊긴 경우
+    }
+  };
+
+  mine.onClose = () => { closed = true; ctrl?.abort(); report('clear'); if (panel === mine) panel = null; };
 
   // 설정 버튼은 뷰어를 찾지 못했거나 불러오기에 실패한 상태에서도 동작해야 하므로 비동기 작업 전에 연결한다.
   // 콘텐츠 스크립트는 설정 페이지를 직접 열 수 없어 background에 부탁한다.
@@ -46,40 +60,58 @@ export async function toggle(doc = document) {
   mine.setTitle(title);
   mine.setProgress(0, total);
   mine.setMessage('총 ' + total + '페이지 · [PDF 만들기]를 누르세요.');
+  mine.showRange(total);
   mine.setButtons({ start: true });
 
   mine.onCancel = () => ctrl?.abort();
 
   mine.onStart = async () => {
+    const range = parseRange(...mine.rangeValues(), total);
+    if (range.error) { mine.setMessage(range.error, true); return; }
+
+    // 범위가 바뀌면 받아 둔 페이지의 순번이 달라지므로 보관한 페이지를 비운다.
+    const rangeKey = range.from + '-' + range.to;
+    if (rangeKey !== lastRange) { cache.clear(); lastRange = rangeKey; }
+    const selected = urls.slice(range.from - 1, range.to);
+    const count = selected.length;
+    savedName = pdfFilename(count === total ? title : `${title} (${range.from}-${range.to}쪽)`);
+
     blob = null;
     ctrl = new AbortController();
+    mine.lockRange(true);
     mine.setButtons({ cancel: true });
+    mine.setProgress(cache.size, count);
     mine.setMessage('이미지 받는 중…');
     const t0 = performance.now(), startDone = cache.size;
     try {
       const speed = toFetchOptions(await loadSettings());   // 시작할 때마다 읽어, 설정을 바꾸면 바로 반영된다
-      blob = await convertPages(urls, {
+      blob = await convertPages(selected, {
         ...speed,
+        firstPage: range.from,
         cache,
         signal: ctrl.signal,
         onProgress: ({ done, bytes }) => {
           if (closed) return;
-          mine.setProgress(done, total);
+          mine.setProgress(done, count);
+          report('running', Math.round(done / count * 100));
           const el = (performance.now() - t0) / 1000;
-          const eta = done < total && done > startDone ? ' · 남은 시간 약 ' + fmtT(el / (done - startDone) * (total - done)) : '';
-          mine.setMessage(done < total ? '받는 중 ' + fmtMB(bytes) + eta : 'PDF 조립 중…');
+          const eta = done < count && done > startDone ? ' · 남은 시간 약 ' + fmtT(el / (done - startDone) * (count - done)) : '';
+          mine.setMessage(done < count ? '받는 중 ' + fmtMB(bytes) + eta : 'PDF 조립 중…');
         },
       });
       if (closed) return;
-      mine.setProgress(total, total, 'done');
-      mine.setMessage('완료 · ' + total + '페이지 · ' + fmtMB(blob.size) + ' · ' + fmtT((performance.now() - t0) / 1000));
+      mine.setProgress(count, count, 'done');
+      mine.setMessage('완료 · ' + count + '페이지 · ' + fmtMB(blob.size) + ' · ' + fmtT((performance.now() - t0) / 1000));
       mine.setButtons({ save: true });
+      report('done');
     } catch (e) {
       if (closed) return;
       const cancelled = ctrl.signal.aborted;
-      mine.setProgress(cache.size, total, cancelled ? '' : 'err');
+      mine.lockRange(false);
+      mine.setProgress(cache.size, count, cancelled ? '' : 'err');
       mine.setMessage(cancelled ? '취소했습니다. 받은 ' + cache.size + '장은 보관 중입니다.' : e.message, !cancelled);
       mine.setButtons({ start: true, startLabel: cancelled ? '이어서 받기' : '다시 시도' });
+      report(cancelled ? 'cancelled' : 'error');
     }
   };
 
@@ -87,7 +119,7 @@ export async function toggle(doc = document) {
     if (!blob) return;
     const a = doc.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = pdfFilename(title);
+    a.download = savedName;
     doc.body.appendChild(a);
     a.click();
     a.remove();

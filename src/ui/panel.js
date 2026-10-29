@@ -22,6 +22,11 @@ const HTML = `
     .stat { display: flex; justify-content: space-between; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
     .msg { color: #6b7280; min-height: 18px; margin-bottom: 10px; }
     .msg.err { color: #dc2626; }
+    .range { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; color: #4b5563; }
+    .range input { width: 64px; padding: 5px 6px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;
+                   background: #fff; color: #1f2937; font-variant-numeric: tabular-nums; }
+    .range input:disabled { background: #f3f4f6; color: #9ca3af; }
+    .range input:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
     .row { display: flex; gap: 8px; }
     button.b { flex: 1; padding: 9px 0; border-radius: 8px; border: 1px solid #d1d5db; background: #f9fafb;
                cursor: pointer; font-size: 13px; }
@@ -49,6 +54,13 @@ const HTML = `
     <div class="bar"><div class="fill" id="fill"></div></div>
     <div class="stat"><span id="count">0 / 0</span><span id="pct">0%</span></div>
     <div class="msg" id="msg"></div>
+    <div class="range hide" id="range">
+      <span>범위</span>
+      <input type="number" id="from" min="1" step="1" inputmode="numeric" aria-label="시작 쪽">
+      <span>~</span>
+      <input type="number" id="to" min="1" step="1" inputmode="numeric" aria-label="끝 쪽">
+      <span id="rangeOf"></span>
+    </div>
     <div class="row">
       <button class="b p hide" id="start">PDF 만들기</button>
       <button class="b hide" id="cancel">취소</button>
@@ -85,6 +97,15 @@ export function createPanel(doc) {
       show('start', start); show('cancel', cancel); show('save', save);
       if (startLabel) $('start').textContent = startLabel;
     },
+    // 저장할 쪽 범위 입력. 처음에는 전체(1 ~ total)로 채운다.
+    showRange(total) {
+      $('from').value = 1;
+      $('to').value = total;
+      $('rangeOf').textContent = '/ ' + total + '쪽';
+      show('range', true);
+    },
+    rangeValues: () => [$('from').value, $('to').value],
+    lockRange(locked) { $('from').disabled = locked; $('to').disabled = locked; },
     destroy() { host.remove(); },
   };
 

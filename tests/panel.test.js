@@ -26,3 +26,9 @@ test('설정 아이콘은 선과 원(노드)으로 된 슬라이더 모양이다
 test('패널은 외부 이미지나 폰트를 불러오지 않는다', () => {
   assert.doesNotMatch(src, /https?:\/\/|url\(|<img|@import/);
 });
+
+test('범위 입력은 접근성 이름을 갖고 처음에는 숨겨져 있다', () => {
+  assert.match(src, /<div class="range hide" id="range">/);
+  assert.match(src, /id="from"[^>]*aria-label="시작 쪽"/);
+  assert.match(src, /id="to"[^>]*aria-label="끝 쪽"/);
+});

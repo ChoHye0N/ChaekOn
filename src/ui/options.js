@@ -1,5 +1,5 @@
 // 설정 화면. 값을 바꾸면 바로 저장한다(저장 버튼 없음).
-import { LIMITS, isGentle, loadSettings, saveSettings, toFetchOptions } from '../core/settings.js';
+import { DEFAULT_SETTINGS, LIMITS, isGentle, loadSettings, saveSettings, toFetchOptions } from '../core/settings.js';
 
 const $ = id => document.getElementById(id);
 const radios = name => [...document.querySelectorAll(`input[name="${name}"]`)];
@@ -8,8 +8,8 @@ const KEYS = Object.keys(LIMITS);
 let settings = await loadSettings();
 let flashTimer;
 
-function flash() {
-  $('status').textContent = '저장됨';
+function flash(text = '저장됨') {
+  $('status').textContent = text;
   clearTimeout(flashTimer);
   flashTimer = setTimeout(() => { $('status').textContent = ''; }, 1800);
 }
@@ -27,11 +27,13 @@ function render() {
   $('position').setAttribute('aria-disabled', String(!settings.launcher.enabled));
 }
 
-async function commit(next) {
+async function commit(next, message) {
   settings = await saveSettings(next);
   render();
-  flash();
+  flash(message);
 }
+
+$('reset').addEventListener('click', () => commit(DEFAULT_SETTINGS, '기본값으로 되돌렸습니다'));
 
 radios('speed').forEach(r => r.addEventListener('change', () => {
   if (r.checked) commit({ ...settings, speed: r.value });
