@@ -11,7 +11,12 @@ export class ConvertError extends Error {
   }
 }
 
-function failureMessage(failed, stopped) {
+const MB = 1048576;
+
+function failureMessage(failed, stopped, maxBytes) {
+  if (stopped === 'too-large') {
+    return `받은 용량이 한도(${Math.round(maxBytes / MB)}MB)를 넘어 중단했습니다. 범위를 나눠서 저장해 주세요(예: 앞쪽 절반, 뒤쪽 절반).`;
+  }
   const list = failed.slice(0, 10).join(', ') + (failed.length > 10 ? ` 외 ${failed.length - 10}장` : '');
   return (stopped ? '연속으로 실패해 중단했습니다. ' : '') + '받지 못한 페이지: ' + list;
 }
@@ -25,7 +30,7 @@ export async function convertPages(urls, opts = {}) {
   const { results, failed, stopped } = await fetchPages(urls, fetchOpts);
   if (failed.length || results.some(r => !r)) {
     const missing = (failed.length ? failed : results.flatMap((r, i) => (r ? [] : [i + 1]))).map(n => n + firstPage - 1);
-    throw new ConvertError(failureMessage(missing, stopped), { failed: missing, stopped });
+    throw new ConvertError(failureMessage(missing, stopped, fetchOpts.maxBytes), { failed: missing, stopped });
   }
   const images = results.map((bytes, i) => {
     try {

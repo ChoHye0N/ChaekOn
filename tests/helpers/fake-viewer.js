@@ -2,11 +2,17 @@
 import http from 'node:http';
 import { fakeJpeg } from './fake-jpeg.js';
 
-export const pageImage = (id, k) => fakeJpeg({ width: 2844, height: 1600, seed: k, payload: 60 + k });
+export const pageImage = (id, k, payload = 60 + k) => fakeJpeg({ width: 2844, height: 1600, seed: k, payload });
 
 // opts.status(k, n) → 응답 코드(기본 200). k는 1부터 센 페이지 번호, n은 그 페이지의 n번째 요청.
-export async function startFakeViewer({ pages = 5, title = '테스트 책', id = 'abc123', status = () => 200 } = {}) {
+// opts.payload는 페이지당 이미지 크기(바이트)로, 큰 책의 메모리·시간을 재는 데 쓴다. 지정하지 않으면 작은 이미지.
+export async function startFakeViewer({ pages = 5, title = '테스트 책', id = 'abc123', status = () => 200, payload } = {}) {
   const hits = new Map();
+  const images = new Map();
+  const imageOf = k => {
+    if (!images.has(k)) images.set(k, Buffer.from(pageImage(id, k, payload)));
+    return images.get(k);
+  };
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname === '/book/project.json') {
@@ -24,7 +30,7 @@ export async function startFakeViewer({ pages = 5, title = '테스트 책', id =
       hits.set(k, n);
       const code = k >= 1 && k <= pages ? status(k, n) : 404;
       res.statusCode = code;
-      return res.end(code === 200 ? Buffer.from(pageImage(id, k)) : undefined);
+      return res.end(code === 200 ? imageOf(k) : undefined);
     }
     res.statusCode = 404;
     res.end();

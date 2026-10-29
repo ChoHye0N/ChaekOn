@@ -69,3 +69,16 @@ test('firstPage: JPEG를 읽지 못한 쪽 번호도 책의 쪽 번호', async (
   const f = async url => new Response(pageOf(url) === 3 ? new Uint8Array([1, 2, 3, 4]) : fakeJpeg());
   await assert.rejects(convertPages(urlsOf(3), { ...fast, fetch: f, firstPage: 40 }), /42페이지/);
 });
+
+test('용량 한도를 넘으면 범위를 나눠 저장하라고 안내한다', async () => {
+  const size = fakeJpeg().length;
+  const f = async url => new Response(fakeJpeg({ seed: pageOf(url) }));
+  await assert.rejects(convertPages(urlsOf(8), { ...fast, fetch: f, concurrency: 1, maxBytes: size * 3 }), e => {
+    assert.ok(e instanceof ConvertError);
+    assert.equal(e.stopped, 'too-large');
+    assert.match(e.message, /한도\(\d+MB\)를 넘어 중단/);
+    assert.match(e.message, /범위를 나눠/);
+    assert.ok(e.failed.length > 0, '받지 못한 쪽 번호가 담긴다');
+    return true;
+  });
+});

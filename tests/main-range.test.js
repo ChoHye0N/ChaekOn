@@ -93,3 +93,24 @@ test('진행 중에는 범위를 잠그고, 진행률을 background에 알린다
   el('close').onclick();
   assert.equal(messages.at(-1).state, 'clear', '패널을 닫으면 배지를 지운다');
 });
+
+test('성공하면 받아 둔 이미지를 비운다 (저장을 기다리는 동안 메모리를 붙들지 않는다)', async () => {
+  const { doc, el } = fakeDoc();
+  await toggle(doc);
+  await run(el, '1', '3');
+  assert.match(el('msg').textContent, /완료/);
+  // 같은 범위로 다시 시작하면 보관한 페이지가 없으므로 전부 다시 받는다
+  await run(el, '1', '3');
+  assert.deepEqual(requested.sort(), [1, 2, 3]);
+  el('close').onclick();
+});
+
+test('받은 용량이 한도를 넘으면 범위를 나눠 저장하라고 안내하고, 다시 시작할 수 있게 한다', async () => {
+  const { doc, el } = fakeDoc();
+  await toggle(doc, { maxBytes: fakeJpeg().length * 2.5 });
+  await run(el, '1', '6');
+  assert.match(el('msg').textContent, /범위를 나눠/);
+  assert.equal(el('from').disabled, false, '범위를 다시 고를 수 있어야 한다');
+  assert.equal(el('start').textContent, '다시 시도');
+  el('close').onclick();
+});

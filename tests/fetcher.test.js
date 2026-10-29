@@ -205,3 +205,25 @@ test('진행 콜백에 완료 수와 누적 바이트가 담긴다', async () =>
     { done: 3, total: 3, bytes: size * 3 },
   ]);
 });
+
+test('maxBytes: 받은 용량이 한도를 넘으면 중단하고, 받은 페이지는 cache에 남긴다', async () => {
+  const clock = makeClock();
+  const f = makeFetch(clock);
+  const size = fakeJpeg().length;
+  const cache = new Map();
+  const { results, failed, stopped } = await fetchPages(urlsOf(10), { ...base(clock), fetch: f, concurrency: 1, cache, maxBytes: size * 2.5 });
+  assert.equal(stopped, 'too-large');
+  assert.deepEqual(failed, [], '실패가 아니라 한도 초과다');
+  assert.equal(cache.size, 3, '3번째 페이지를 받아 한도를 넘은 시점에 멈춘다');
+  assert.equal(f.log.length, 3);
+  assert.equal(results.filter(Boolean).length, 3);
+});
+
+test('maxBytes: 마지막 페이지에서 넘은 것은 중단하지 않는다 (이미 다 받았다)', async () => {
+  const clock = makeClock();
+  const f = makeFetch(clock);
+  const size = fakeJpeg().length;
+  const { stopped, results } = await fetchPages(urlsOf(3), { ...base(clock), fetch: f, concurrency: 1, maxBytes: size * 2.5 });
+  assert.equal(stopped, null);
+  assert.ok(results.every(Boolean));
+});

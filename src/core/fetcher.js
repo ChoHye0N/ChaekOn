@@ -27,19 +27,21 @@ function retryAfterMs(res, now) {
  * @param {number}   [opts.maxRetries=3]         페이지당 재시도 횟수
  * @param {number}   [opts.backoffMs=1000]       재시도 대기 기준(2배씩 증가)
  * @param {number}   [opts.maxConsecutiveFailures=3]
+ * @param {number}   [opts.maxBytes=Infinity]    받은 용량(cache에 있던 것 포함)이 이를 넘으면 중단한다. 큰 책으로 메모리가 부족해지는 것을 막는다.
  * @param {AbortSignal} [opts.signal]
  * @param {Map<number, Uint8Array>} [opts.cache] 이미 받은 페이지(0부터). 같은 cache로 다시 호출하면 이어받는다.
  * @param {(p: {done:number,total:number,bytes:number}) => void} [opts.onProgress]
  * @param {typeof fetch} [opts.fetch]
  * @param {(ms:number, signal?:AbortSignal) => Promise<void>} [opts.sleep] 테스트용
  * @param {() => number} [opts.now] 테스트용
- * @returns {Promise<{results: (Uint8Array|undefined)[], failed: number[], stopped: null|'consecutive-failures'}>}
+ * @returns {Promise<{results: (Uint8Array|undefined)[], failed: number[], stopped: null|'consecutive-failures'|'too-large'}>}
  *   failed는 1부터 센 페이지 번호. 취소되면 signal.reason으로 reject한다(받은 페이지는 cache에 남는다).
+ *   'too-large'로 멈추면 failed는 비어 있고, 아직 받지 않은 페이지는 results에서 undefined다.
  */
 export async function fetchPages(urls, opts = {}) {
   const {
     concurrency = 2, intervalMs = 400, maxRetries = 3, backoffMs = 1000,
-    maxConsecutiveFailures = 3, signal, cache = new Map(), onProgress,
+    maxConsecutiveFailures = 3, maxBytes = Infinity, signal, cache = new Map(), onProgress,
     fetch: doFetch = globalThis.fetch, sleep = defaultSleep, now = Date.now,
   } = opts;
   const total = urls.length;
@@ -97,6 +99,7 @@ export async function fetchPages(urls, opts = {}) {
         cache.set(i, data);
         consecutive = 0; done++; bytes += data.length;
         onProgress?.({ done, total, bytes });
+        if (bytes > maxBytes && done < total) stopped ??= 'too-large';
       } else {
         failed.push(i + 1);
         if (++consecutive >= maxConsecutiveFailures) stopped = 'consecutive-failures';

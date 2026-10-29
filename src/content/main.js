@@ -9,9 +9,13 @@ import { pdfFilename } from './filename.js';
 const fmtMB = b => (b / 1048576).toFixed(1) + 'MB';
 const fmtT = s => (s >= 60 ? Math.floor(s / 60) + '분 ' + Math.round(s % 60) + '초' : Math.round(s) + '초');
 
+// 받은 이미지는 PDF를 만들 때까지 메모리에 두고, 조립하면서 한 번 더 잡는다(최대 책 크기의 약 2배).
+// 큰 책에서 탭이 메모리 부족으로 죽지 않도록, 받은 용량이 이 한도를 넘으면 범위를 나눠 저장하도록 안내하고 멈춘다.
+export const MAX_BYTES = 1024 * 1048576;
+
 let panel = null;
 
-export async function toggle(doc = document) {
+export async function toggle(doc = document, { maxBytes = MAX_BYTES } = {}) {
   if (panel) { panel.destroy(); panel.onClose?.(); return; }
 
   const mine = panel = createPanel(doc);
@@ -88,6 +92,7 @@ export async function toggle(doc = document) {
       blob = await convertPages(selected, {
         ...speed,
         firstPage: range.from,
+        maxBytes,
         cache,
         signal: ctrl.signal,
         onProgress: ({ done, bytes }) => {
@@ -99,12 +104,14 @@ export async function toggle(doc = document) {
           mine.setMessage(done < count ? '받는 중 ' + fmtMB(bytes) + eta : 'PDF 조립 중…');
         },
       });
+      cache.clear();   // PDF가 만들어졌으니 받아 둔 이미지는 바로 놓아 준다(저장 대기 중에 메모리를 붙들지 않는다)
       if (closed) return;
       mine.setProgress(count, count, 'done');
       mine.setMessage('완료 · ' + count + '페이지 · ' + fmtMB(blob.size) + ' · ' + fmtT((performance.now() - t0) / 1000));
       mine.setButtons({ save: true });
       report('done');
     } catch (e) {
+      if (e.stopped === 'too-large') cache.clear();   // 같은 범위로는 다시 해도 넘으므로 메모리를 바로 놓아 준다
       if (closed) return;
       const cancelled = ctrl.signal.aborted;
       mine.lockRange(false);
