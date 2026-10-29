@@ -17,7 +17,19 @@
 </p>
 
 > [!IMPORTANT]
-> 아직 설치해서 쓸 수 있는 확장 프로그램이 아닙니다. 지금은 PDF 조립과 페이지 수집을 맡는 코어 모듈(`src/core`)만 구현되어 있습니다.
+> 개발 초기 단계입니다. 크롬에 개발자 모드로 직접 불러와 쓸 수 있지만, 스토어에는 올라가 있지 않습니다. 가짜 뷰어(로컬 테스트 서버)로만 검증했고, 실제 서비스의 뷰어에서는 아직 확인하지 않았습니다.
+
+## 설치 (개발 버전)
+
+1. 이 저장소를 내려받습니다.
+2. 크롬에서 `chrome://extensions`를 열고 오른쪽 위의 **개발자 모드**를 켭니다.
+3. **압축해제된 확장 프로그램을 로드합니다**를 눌러 이 저장소 폴더를 고릅니다.
+4. 전자책 뷰어를 연 탭에서 툴바의 ChaekOn 아이콘을 누르면 오른쪽 위에 진행률 패널이 뜹니다.
+5. **PDF 만들기**를 누르고, 끝나면 **PDF 저장**을 누릅니다.
+
+아이콘을 누르기 전에는 어떤 페이지에서도 아무 코드도 실행되지 않습니다. 요청하는 권한은 `activeTab`, `scripting` 두 가지뿐입니다.
+
+지원하는 뷰어는 `project.json`을 가진 이미지형 뷰어(`src/adapters/project-json.js`)입니다. 다른 형식은 어댑터를 추가해야 합니다.
 
 ## 왜 만들었나
 
@@ -96,7 +108,7 @@ await fetchPages(urls, { cache });                         // 이어서 받기: 
 ## 동작 방식
 
 1. 사용자가 이미 열어 둔 뷰어 탭에서 버튼을 누르면 시작합니다. 백그라운드에서 자동으로 수집하지 않습니다.
-2. 뷰어 어댑터가 페이지 이미지 URL 목록을 만듭니다. (아직 구현 전)
+2. 뷰어 어댑터가 현재 페이지를 알아보고 페이지 이미지 URL 목록을 만듭니다.
 3. `fetchPages`가 로그인된 탭의 정상 요청으로 이미지를 순서대로 받습니다.
 4. `buildPdf`가 JPEG의 크기와 채널 수를 읽어, 페이지마다 이미지 한 장씩 담은 PDF를 만듭니다.
 
@@ -143,9 +155,15 @@ node scripts/verify-pdf.mjs <결과.pdf> [원본이미지폴더]
 - `scripts/verify-pdf.mjs`는 PDF의 헤더, xref 오프셋, 페이지 순서, JPEG 시작·끝 표시를 검사하고, 원본 폴더를 주면 바이트 단위로 비교합니다.
 
 ```
+manifest.json           Manifest V3 (권한: activeTab, scripting)
+src/background.js       아이콘을 눌렀을 때 현재 탭에 패널 주입
+src/content/            loader(동적 import), main(진행 흐름), 파일 이름 정리
+src/ui/panel.js         진행률 패널 (Shadow DOM)
+src/adapters/           뷰어 어댑터: detect, listPages, title
 src/core/pdf.js         이미지 배열 -> PDF Blob
 src/core/fetcher.js     동시성, 재시도, 백오프, 취소, 이어받기
-tests/                  node --test
+src/core/convert.js     URL 목록 -> PDF Blob
+tests/                  node --test (가짜 JPEG, 가짜 fetch, 가짜 뷰어 서버)
 scripts/verify-pdf.mjs  생성한 PDF 검증
 ```
 
