@@ -17,6 +17,16 @@ export async function toggle(doc = document) {
   let ctrl = null, blob = null, closed = false;
   const cache = new Map();   // 취소하거나 실패해도 받은 페이지는 남겨 이어받는다
   mine.onClose = () => { closed = true; ctrl?.abort(); if (panel === mine) panel = null; };
+
+  // 설정 버튼은 뷰어를 찾지 못했거나 불러오기에 실패한 상태에서도 동작해야 하므로 비동기 작업 전에 연결한다.
+  // 콘텐츠 스크립트는 설정 페이지를 직접 열 수 없어 background에 부탁한다.
+  mine.onSettings = async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: 'open-options' });
+    } catch {
+      mine.setMessage('설정을 열지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.', true);
+    }
+  };
   mine.setMessage('뷰어를 확인하는 중…');
 
   const adapter = await pickAdapter(doc);
@@ -39,15 +49,6 @@ export async function toggle(doc = document) {
   mine.setButtons({ start: true });
 
   mine.onCancel = () => ctrl?.abort();
-
-  // 콘텐츠 스크립트는 설정 페이지를 직접 열 수 없어 background에 부탁한다.
-  mine.onSettings = async () => {
-    try {
-      await chrome.runtime.sendMessage({ type: 'open-options' });
-    } catch {
-      mine.setMessage('설정을 열지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.', true);
-    }
-  };
 
   mine.onStart = async () => {
     blob = null;
