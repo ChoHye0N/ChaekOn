@@ -19,6 +19,13 @@
   "background": {
     "service_worker": "src/background.js"
   },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["src/content/launcher.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "permissions": ["activeTab", "scripting", "contextMenus"],
   "commands": {
     "_execute_action": {

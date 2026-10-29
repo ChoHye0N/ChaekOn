@@ -9,7 +9,19 @@ test('Manifest V3이고 필요한 최소 권한만 요청한다', () => {
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual([...manifest.permissions].sort(), ['activeTab', 'contextMenus', 'scripting']);
   assert.equal(manifest.host_permissions, undefined, '넓은 호스트 권한을 요청하지 않는다');
-  assert.equal(manifest.content_scripts, undefined, '자동 주입 content script를 두지 않는다 (아이콘을 눌렀을 때만 동작)');
+});
+
+// 툴바가 없는 새 창에서 시작 버튼을 띄우려고 모든 http(s) 페이지에 로드되는 content script가 하나 있다.
+// 이 스크립트는 일반 탭에서는 아무것도 하지 않아야 하고, 프레임·about:blank로 넓어지면 안 된다.
+test('content script는 작은 시작 버튼용 launcher.js 하나뿐이다', () => {
+  assert.equal(manifest.content_scripts.length, 1);
+  const [cs] = manifest.content_scripts;
+  assert.deepEqual(cs.js, ['src/content/launcher.js']);
+  assert.equal(cs.css, undefined);
+  assert.equal(cs.all_frames, undefined);
+  assert.equal(cs.match_about_blank, undefined);
+  assert.deepEqual(cs.matches, ['http://*/*', 'https://*/*']);
+  assert.ok(existsSync(cs.js[0]));
 });
 
 test('manifest가 가리키는 파일이 모두 있다', () => {
@@ -48,6 +60,7 @@ test('main.js가 import하는 모든 모듈이 web_accessible_resources에 포�
     }
   };
   visit('src/content/main.js');
+  visit('src/content/launcher-ui.js');
   assert.ok(seen.size > 5, '의존성 그래프를 읽지 못함');
   for (const f of seen) assert.ok(patterns.some(re => re.test(f)), `${f}가 web_accessible_resources에 없음`);
 });
