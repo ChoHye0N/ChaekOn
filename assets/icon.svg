@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="ChaekOn">
+  <rect width="128" height="128" rx="28" fill="#2563eb"/>
+  <path d="M26 38c14-4 27-1 36 6v48c-9-7-22-10-36-6z" fill="#ffffff"/>
+  <path d="M102 38c-14-4-27-1-36 6v48c9-7 22-10 36-6z" fill="#dbeafe"/>
+  <path d="M34 52c8-2 15-1 22 3M34 64c8-2 15-1 22 3M34 76c8-2 15-1 22 3" fill="none" stroke="#2563eb" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="96" cy="30" r="11" fill="#22c55e"/>
+  <path d="M90.5 30.5l4 4 7-8" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

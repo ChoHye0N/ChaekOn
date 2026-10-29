@@ -1,48 +1,40 @@
-# Ebook → PDF
+<p align="center">
+  <img src="assets/icon.svg" alt="ChaekOn 로고" width="96" height="96">
+</p>
 
-열람 권한이 있는 이미지형 웹 전자책을, 브라우저 안에서 PDF 한 개로 합쳐 저장합니다.
+<h1 align="center">ChaekOn</h1>
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue)
-![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4)
-![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)
-![Status: early development](https://img.shields.io/badge/status-early%20development-orange)
+<p align="center">
+  열람 권한이 있는 이미지형 웹 전자책을, 브라우저 안에서 PDF 한 개로 합쳐 저장합니다.<br>
+  원본 화질 그대로, 서버에 부담 없이, 외부로 아무것도 보내지 않고.
+</p>
+
+<p align="center">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue">
+  <img alt="Chrome: Manifest V3" src="https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4">
+  <img alt="Dependencies: none" src="https://img.shields.io/badge/dependencies-none-brightgreen">
+  <img alt="Status: early development" src="https://img.shields.io/badge/status-early%20development-orange">
+</p>
 
 > [!IMPORTANT]
-> 아직 설치해서 쓸 수 있는 확장 프로그램이 아닙니다. 현재는 PDF 조립과 페이지 수집을 맡는 코어 모듈(`src/core`)만 구현되어 있습니다.
+> 아직 설치해서 쓸 수 있는 확장 프로그램이 아닙니다. 지금은 PDF 조립과 페이지 수집을 맡는 코어 모듈(`src/core`)만 구현되어 있습니다.
 
-## 상태
+## 왜 만들었나
 
-| 단계 | 내용 | 상태 |
-|---|---|---|
-| 1 | 코어: PDF 조립(`pdf.js`), 페이지 수집(`fetcher.js`), 테스트 | 완료 |
-| 2 | 뷰어 어댑터, content script, 진행률 패널, `manifest.json` | 예정 |
-| 3 | 실제 뷰어에서 확인, 크롬 확장으로 배포 준비 | 예정 |
+페이지가 이미지로만 제공되는 전자책은 오프라인으로 보관하거나 한 파일로 정리하기 어렵습니다. 이 프로젝트는 이미 로그인해서 열어 둔 뷰어 탭에서, 버튼 한 번으로 PDF 하나를 만드는 것을 목표로 합니다.
 
 ## 특징
 
-- **재압축 없음**: 원본 JPEG 바이트를 그대로 PDF에 넣습니다. 화질 손실과 불필요한 CPU 사용이 없습니다.
-- **천천히 받기**: 기본 동시 요청 2장에 요청 사이 간격을 둡니다. 서버에 부담을 주지 않는 것이 기본값입니다.
-- **429·403에 반응**: 동시 수를 줄이고 `Retry-After`를 따라 쉽니다. 계속 실패하면 중단하고 실패한 페이지 번호를 알려 줍니다.
-- **취소와 이어받기**: `AbortSignal`로 중단할 수 있고, 이미 받은 페이지는 다시 받지 않습니다.
-- **의존성 없음**: 바닐라 JS(ES 모듈)만 씁니다. 빌드 단계가 없습니다.
-- **브라우저 안에서만 처리**: 외부 서버 전송, 분석, 텔레메트리 코드가 없습니다.
+| | |
+|---|---|
+| 원본 그대로 | JPEG를 다시 압축하지 않고 바이트 그대로 PDF에 넣습니다. |
+| 천천히 | 기본 동시 요청 2장, 요청 사이 간격 400ms. 서버에 부담을 주지 않는 것이 기본값입니다. |
+| 눈치 있게 | 429·403이 오면 동시 수를 줄이고 `Retry-After`를 따릅니다. 연속으로 실패하면 멈추고 실패한 페이지를 알려 줍니다. |
+| 끊어도 이어서 | 취소할 수 있고, 같은 `cache`로 다시 시작하면 받은 페이지는 건너뜁니다. |
+| 가볍게 | 의존성 0, 빌드 단계 없음. 바닐라 JS(ES 모듈)입니다. |
+| 안에서만 | 모든 처리는 브라우저 안에서 합니다. 서버 전송, 분석, 텔레메트리가 없습니다. |
 
-## 동작 방식
-
-```mermaid
-flowchart LR
-    A[뷰어 어댑터<br/>페이지 URL 목록] --> B[fetcher<br/>천천히 받기]
-    B -->|JPEG 바이트| C[pdf<br/>재압축 없이 조립]
-    C --> D[PDF 한 개]
-    B -.->|429 · 403 · 연속 실패| E[속도 줄임 또는 중단]
-```
-
-1. 사용자가 이미 열어 둔 뷰어 탭에서 버튼을 누르면 시작합니다. 백그라운드에서 자동으로 수집하지 않습니다.
-2. 어댑터가 페이지 이미지 URL 목록을 만듭니다. (2단계에서 구현)
-3. `fetchPages`가 로그인된 탭의 정상 요청으로 이미지를 순서대로 받습니다.
-4. `buildPdf`가 JPEG의 크기와 채널 수를 읽어, 페이지마다 이미지 한 장씩 담은 PDF를 만듭니다.
-
-## 코어 모듈 사용법
+## 빠른 시작
 
 Node.js 18 이상 또는 최신 브라우저에서 동작합니다.
 
@@ -50,24 +42,27 @@ Node.js 18 이상 또는 최신 브라우저에서 동작합니다.
 import { fetchPages } from './src/core/fetcher.js';
 import { buildPdf, readJpegInfo } from './src/core/pdf.js';
 
-const cache = new Map();           // 같은 cache로 다시 호출하면 이어받습니다
-const ctrl = new AbortController();
-
 const { results, failed, stopped } = await fetchPages(urls, {
-  cache,
-  signal: ctrl.signal,
-  onProgress: ({ done, total, bytes }) => console.log(done, '/', total, bytes),
+  onProgress: ({ done, total, bytes }) => console.log(`${done}/${total}`, bytes),
 });
 
-if (failed.length) {
-  console.error('받지 못한 페이지:', failed, stopped);   // 1부터 센 번호
-} else {
-  const pdf = buildPdf(results.map(bytes => ({ bytes, ...readJpegInfo(bytes) })));
-  // pdf는 Blob입니다
-}
+if (failed.length) throw new Error(`받지 못한 페이지: ${failed} (${stopped ?? '일부 실패'})`);
+
+const pdf = buildPdf(results.map(bytes => ({ bytes, ...readJpegInfo(bytes) })));   // Blob
 ```
 
-### `fetchPages(urls, options)` 옵션
+취소와 이어받기는 `signal`과 `cache`로 합니다.
+
+```js
+const cache = new Map();
+const ctrl = new AbortController();
+
+await fetchPages(urls, { cache, signal: ctrl.signal });   // ctrl.abort()로 중단하면 받은 페이지는 cache에 남습니다
+await fetchPages(urls, { cache });                         // 이어서 받기: 못 받은 페이지만 요청합니다
+```
+
+<details>
+<summary><code>fetchPages(urls, options)</code> 옵션과 응답 처리</summary>
 
 | 옵션 | 기본값 | 설명 |
 |---|---|---|
@@ -81,29 +76,59 @@ if (failed.length) {
 | `onProgress` | - | `{ done, total, bytes }` 콜백 |
 | `fetch` | 전역 `fetch` | 교체 가능(테스트, 다른 출처 처리용) |
 
-응답별 처리는 다음과 같습니다.
-
 | 응답 | 동작 |
 |---|---|
 | 429, 403 | 동시 수를 1 줄이고(최소 1), `Retry-After`(초 또는 날짜)가 있으면 그만큼, 없으면 백오프만큼 전체가 쉼 |
 | 408, 5xx, 네트워크 오류 | 백오프 후 재시도 |
 | 그 밖의 4xx(404 등) | 재시도하지 않고 실패 처리 |
 
-### `buildPdf(images)`
+반환값은 `{ results, failed, stopped }`입니다. `results`는 페이지 순서의 `Uint8Array`(못 받은 곳은 `undefined`), `failed`는 1부터 센 실패 페이지 번호, `stopped`는 연속 실패로 중단했을 때 `'consecutive-failures'`입니다.
 
-`{ bytes, width, height, components }` 배열을 받아 `Blob`을 돌려줍니다. 1채널(흑백)과 3채널(컬러) JPEG만 지원하며, 그 밖의 채널 수는 에러입니다. `readJpegInfo(bytes)`로 크기와 채널 수를 읽을 수 있습니다.
+</details>
 
-## 안전과 한계
+<details>
+<summary><code>buildPdf(images)</code></summary>
 
-- **접근 제한을 우회하지 않습니다.** DRM 해제, 로그인·CAPTCHA 우회, 서명 URL 위조 기능은 없고 앞으로도 추가하지 않습니다. 이미 열린 탭이 정상적으로 보내는 요청만 사용합니다.
-- **사용자가 누를 때만 동작합니다.** 백그라운드 수집, 예약 실행은 만들지 않습니다.
-- **데이터가 밖으로 나가지 않습니다.** 받은 이미지와 PDF는 브라우저 안에서만 다룹니다.
+`{ bytes, width, height, components }` 배열을 받아 `Blob`을 돌려줍니다. 페이지마다 이미지 한 장을 이미지 크기 그대로의 페이지에 담습니다. 1채널(흑백)과 3채널(컬러) JPEG만 지원하며, 그 밖의 채널 수는 에러입니다. `readJpegInfo(bytes)`로 크기와 채널 수를 읽을 수 있습니다.
 
-지원하지 않는 것:
+</details>
 
-- JPEG가 아닌 이미지, CMYK(4채널) JPEG
-- 텍스트 레이어와 목차(OCR 포함). 결과 PDF는 페이지 이미지만 담습니다.
-- 서버가 접근을 막은 경우의 우회. 이때는 중단하고 알립니다.
+## 동작 방식
+
+1. 사용자가 이미 열어 둔 뷰어 탭에서 버튼을 누르면 시작합니다. 백그라운드에서 자동으로 수집하지 않습니다.
+2. 뷰어 어댑터가 페이지 이미지 URL 목록을 만듭니다. (아직 구현 전)
+3. `fetchPages`가 로그인된 탭의 정상 요청으로 이미지를 순서대로 받습니다.
+4. `buildPdf`가 JPEG의 크기와 채널 수를 읽어, 페이지마다 이미지 한 장씩 담은 PDF를 만듭니다.
+
+## 자주 묻는 질문
+
+<details>
+<summary>DRM이 걸린 책도 되나요?</summary>
+
+아니요. DRM 해제, 로그인·CAPTCHA 우회, 서명 URL 위조 기능은 없고 앞으로도 추가하지 않습니다. 이미 열린 탭이 정상적으로 보내는 요청만 사용합니다.
+
+</details>
+
+<details>
+<summary>왜 이렇게 느리게 받나요?</summary>
+
+서버에 부담을 주지 않기 위해서입니다. 기본값은 동시 2장에 400ms 간격이고, 429·403 응답에는 더 느려집니다. 값은 옵션으로 바꿀 수 있지만, 올리는 것은 권하지 않습니다.
+
+</details>
+
+<details>
+<summary>텍스트 검색이나 목차가 되나요?</summary>
+
+아니요. 결과 PDF는 페이지 이미지만 담습니다. OCR과 목차 생성은 범위에 없습니다.
+
+</details>
+
+<details>
+<summary>JPEG가 아닌 이미지는요?</summary>
+
+지원하지 않습니다. CMYK(4채널) JPEG도 에러로 처리합니다.
+
+</details>
 
 ## 개발
 
@@ -118,10 +143,10 @@ node scripts/verify-pdf.mjs <결과.pdf> [원본이미지폴더]
 - `scripts/verify-pdf.mjs`는 PDF의 헤더, xref 오프셋, 페이지 순서, JPEG 시작·끝 표시를 검사하고, 원본 폴더를 주면 바이트 단위로 비교합니다.
 
 ```
-src/core/pdf.js        이미지 배열 -> PDF Blob
-src/core/fetcher.js    동시성, 재시도, 백오프, 취소, 이어받기
-tests/                 node --test
-scripts/verify-pdf.mjs 생성한 PDF 검증
+src/core/pdf.js         이미지 배열 -> PDF Blob
+src/core/fetcher.js     동시성, 재시도, 백오프, 취소, 이어받기
+tests/                  node --test
+scripts/verify-pdf.mjs  생성한 PDF 검증
 ```
 
 ## 용도와 책임
