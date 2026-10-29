@@ -8,10 +8,12 @@ const HTML = `
             box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 14px 16px; font-size: 13px; }
     .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
     .head b { font-size: 14px; }
-    .tools { display: flex; align-items: center; gap: 6px; }
-    .x { border: 0; background: none; font-size: 18px; line-height: 1; cursor: pointer; color: #6b7280; padding: 2px; display: flex; }
-    .x:hover { color: #1f2937; }
-    .x svg { width: 16px; height: 16px; display: block; }
+    .tools { display: flex; align-items: center; gap: 2px; margin-right: -6px; }
+    .icon { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; color: #6b7280;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .icon:hover { background: #f3f4f6; color: #1f2937; }
+    .icon:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+    .icon svg { width: 16px; height: 16px; display: block; }
     .title { color: #4b5563; margin-bottom: 10px; word-break: break-all; }
     .bar { height: 10px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
     .fill { height: 100%; width: 0; background: #2563eb; transition: width .15s; }
@@ -30,13 +32,17 @@ const HTML = `
   <div class="card">
     <div class="head"><b>ChaekOn</b>
       <span class="tools">
-        <button class="x" id="settings" title="설정" aria-label="설정">
+        <button class="icon" id="settings" title="설정" aria-label="설정">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="7.5"/>
-            <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>
+            <path d="M3 6h5.5M13.5 6H21M3 12h11.5M19.5 12H21M3 18h3.5M11.5 18H21"/>
+            <circle cx="11" cy="6" r="2.5"/><circle cx="17" cy="12" r="2.5"/><circle cx="9" cy="18" r="2.5"/>
           </svg>
         </button>
-        <button class="x" id="close" title="닫기" aria-label="닫기">×</button>
+        <button class="icon" id="close" title="닫기" aria-label="닫기">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18"/>
+          </svg>
+        </button>
       </span>
     </div>
     <div class="title" id="title"></div>

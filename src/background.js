@@ -45,9 +45,23 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: MENU_ID, title: DEFAULT_TITLE, contexts: ['all'] });
 });
 
-// 패널의 톱니 버튼: 콘텐츠 스크립트는 설정 페이지를 직접 열 수 없어 background가 대신 연다.
+// 콘텐츠 스크립트는 설정 페이지를 직접 열 수 없어 background가 대신 연다.
+// 책이 툴바 없는 새 창에 있으면 설정 탭이 다른 창에 열려 가려지므로, 그 창을 앞으로 가져온다.
+async function openSettings() {
+  try {
+    await chrome.runtime.openOptionsPage();
+    const [tab] = await chrome.tabs.query({ url: chrome.runtime.getURL('src/ui/options.html') + '*' });
+    if (!tab) return;
+    await chrome.tabs.update(tab.id, { active: true });
+    await chrome.windows.update(tab.windowId, { focused: true });
+  } catch {
+    // 열 수 없는 환경이면 아무것도 하지 않는다.
+  }
+}
+
+// 패널의 설정(슬라이더) 버튼
 chrome.runtime.onMessage.addListener((message, sender) => {
-  if (sender.id === chrome.runtime.id && message?.type === 'open-options') chrome.runtime.openOptionsPage();
+  if (sender.id === chrome.runtime.id && message?.type === 'open-options') openSettings();
 });
 
 // 프레임 안에서 눌렀으면 그 프레임에 연다. 뷰어가 같은 출처 iframe 안에 있어도 동작한다.
