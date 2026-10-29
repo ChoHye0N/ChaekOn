@@ -7,7 +7,7 @@ const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
 
 test('Manifest V3이고 필요한 최소 권한만 요청한다', () => {
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual([...manifest.permissions].sort(), ['activeTab', 'scripting']);
+  assert.deepEqual([...manifest.permissions].sort(), ['activeTab', 'contextMenus', 'scripting']);
   assert.equal(manifest.host_permissions, undefined, '넓은 호스트 권한을 요청하지 않는다');
   assert.equal(manifest.content_scripts, undefined, '자동 주입 content script를 두지 않는다 (아이콘을 눌렀을 때만 동작)');
 });

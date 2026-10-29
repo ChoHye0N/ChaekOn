@@ -24,10 +24,15 @@
 1. 이 저장소를 내려받습니다.
 2. 크롬에서 `chrome://extensions`를 열고 오른쪽 위의 **개발자 모드**를 켭니다.
 3. **압축해제된 확장 프로그램을 로드합니다**를 눌러 이 저장소 폴더를 고릅니다.
-4. 전자책 뷰어를 연 탭에서 툴바의 ChaekOn 아이콘을 누르면 오른쪽 위에 진행률 패널이 뜹니다.
+4. 전자책 뷰어를 연 탭에서 아래 세 가지 중 하나로 열면 오른쪽 위에 진행률 패널이 뜹니다.
+   - 툴바의 ChaekOn 아이콘 클릭
+   - 단축키 `Alt+Shift+P` (`chrome://extensions/shortcuts`에서 바꿀 수 있습니다)
+   - 페이지에서 우클릭한 뒤 **ChaekOn: 이 책을 PDF로 저장** 선택
 5. **PDF 만들기**를 누르고, 끝나면 **PDF 저장**을 누릅니다.
 
-아이콘을 누르기 전에는 어떤 페이지에서도 아무 코드도 실행되지 않습니다. 요청하는 권한은 `activeTab`, `scripting` 두 가지뿐입니다.
+책이 주소창과 툴바가 없는 새 창(팝업 창)으로 열리면 아이콘이 보이지 않으니 단축키나 우클릭 메뉴를 쓰세요. 크롬 내부 페이지(`chrome://`)와 웹 스토어에서는 확장이 동작할 수 없어서, 아이콘에 빨간 `!` 표시만 뜹니다.
+
+직접 열기 전에는 어떤 페이지에서도 아무 코드도 실행되지 않습니다. 요청하는 권한은 `activeTab`, `scripting`, `contextMenus` 세 가지뿐이고, 모든 사이트에 대한 접근 권한은 요청하지 않습니다.
 
 지원하는 뷰어는 `project.json`을 가진 이미지형 뷰어(`src/adapters/project-json.js`)입니다. 다른 형식은 어댑터를 추가해야 합니다.
 
@@ -155,8 +160,8 @@ node scripts/verify-pdf.mjs <결과.pdf> [원본이미지폴더]
 - `scripts/verify-pdf.mjs`는 PDF의 헤더, xref 오프셋, 페이지 순서, JPEG 시작·끝 표시를 검사하고, 원본 폴더를 주면 바이트 단위로 비교합니다.
 
 ```
-manifest.json           Manifest V3 (권한: activeTab, scripting)
-src/background.js       아이콘을 눌렀을 때 현재 탭에 패널 주입
+manifest.json           Manifest V3 (권한: activeTab, scripting, contextMenus)
+src/background.js       아이콘, 단축키, 우클릭 메뉴로 열었을 때 패널 주입
 src/content/            loader(동적 import), main(진행 흐름), 파일 이름 정리
 src/ui/panel.js         진행률 패널 (Shadow DOM)
 src/adapters/           뷰어 어댑터: detect, listPages, title
