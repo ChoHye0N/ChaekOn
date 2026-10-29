@@ -7,7 +7,7 @@ const LABEL = 'ChaekOn: 이 책을 PDF로 저장';
 const HTML = `
   <style>
     * { box-sizing: border-box; font-family: -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
-    button { display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border: 0; border-radius: 999px;
+    button { display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border: 0; border-radius: 10px;
              background: #2563eb; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
              box-shadow: 0 4px 14px rgba(0,0,0,.28); }
     button:hover { background: #1d4ed8; }
