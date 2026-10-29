@@ -33,6 +33,30 @@ test('web_accessible_resources 패턴이 실제 모듈 파일과 맞고, loader.
   assert.match(loader, /src\/content\/main\.js/);
 });
 
+// main.js가 정적 import로 끌어오는 모든 모듈은 web_accessible_resources로 열려 있어야 한다.
+// 하나라도 빠지면 크롬이 chrome-extension://invalid/ (ERR_BLOCKED_BY_CLIENT)로 막고 패널이 뜨지 않는다.
+test('main.js가 import하는 모든 모듈이 web_accessible_resources에 포함된다', () => {
+  const patterns = manifest.web_accessible_resources.flatMap(r => r.resources)
+    .map(p => new RegExp('^' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*') + '$'));
+  const seen = new Set();
+  const visit = file => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const src = readFileSync(file, 'utf8');
+    for (const m of src.matchAll(/^import\s[^'"]*['"](\.[^'"]+)['"]/gm)) {
+      visit(join(file, '..', m[1]).replaceAll('\\', '/'));
+    }
+  };
+  visit('src/content/main.js');
+  assert.ok(seen.size > 5, '의존성 그래프를 읽지 못함');
+  for (const f of seen) assert.ok(patterns.some(re => re.test(f)), `${f}가 web_accessible_resources에 없음`);
+});
+
+// use_dynamic_url을 켜면 main.js는 열리지만 그 안의 상대 경로 import가 정적 주소로 요청돼 막힌다.
+test('use_dynamic_url을 쓰지 않는다 (모듈 상대 경로 import가 막힘)', () => {
+  for (const r of manifest.web_accessible_resources) assert.equal(r.use_dynamic_url, undefined);
+});
+
 test('background가 불러오는 content script가 있다', () => {
   const bg = readFileSync(manifest.background.service_worker, 'utf8');
   const file = bg.match(/files:\s*\['([^']+)'\]/)[1];
