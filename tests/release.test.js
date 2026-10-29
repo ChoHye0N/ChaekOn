@@ -33,7 +33,6 @@ test('zip에는 manifest가 가리키는 모든 파일이 들어가고, 개발�
   for (const pattern of manifest.web_accessible_resources.flatMap(r => r.resources)) {
     assert.ok(inside(pattern.slice(0, pattern.lastIndexOf('/'))), `${pattern} 폴더가 zip에 없음`);
   }
-  for (const dev of ['tests', 'scripts', '.github', '.git', 'README.md', 'CLAUDE.md', '.claude', 'node_modules']) {
-    assert.ok(!packed.includes(dev), `${dev}는 zip에 넣지 않는다`);
-  }
+  // 묶는 대상은 확장 프로그램 파일 세 가지뿐이어야 한다. 그 밖의 것(테스트, 스크립트, 문서, 로컬 설정 등)이 늘어나면 실패한다.
+  assert.deepEqual([...packed].sort(), ['assets/icons', 'manifest.json', 'src']);
 });
